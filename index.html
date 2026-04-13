@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IoT Control Center • Smart Builder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #09090b; }
+        
+        /* Glassmorphism Effect */
+        .glass-card {
+            background: rgba(24, 24, 27, 0.6);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(63, 63, 70, 0.4);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+        }
+        
+        /* Custom Scrollbar for Terminal */
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #18181b; border-radius: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #52525b; }
+
+        /* Dimmer Range Slider Styling */
+        input[type=range] {
+            -webkit-appearance: none; width: 100%; background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 20px; width: 20px;
+            border-radius: 50%; background: #3b82f6; cursor: pointer;
+            margin-top: -8px; box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 6px; cursor: pointer;
+            background: #27272a; border-radius: 4px; border: 1px solid #3f3f46;
+        }
+    </style>
+</head>
+<body class="text-zinc-200 min-h-screen">
+    <div class="max-w-screen-2xl mx-auto p-4 md:p-8">
+        
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10 border-b border-zinc-800 pb-8">
+            <div class="flex items-center gap-5">
+                <div class="w-14 h-14 bg-gradient-to-br from-emerald-400 to-cyan-500 rounded-2xl flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.3)]">
+                    <i class="fas fa-microchip text-3xl text-zinc-950"></i>
+                </div>
+                <div>
+                    <h1 class="text-3xl font-bold tracking-tight text-white">IoT CONTROL CENTER</h1>
+                    <p class="text-zinc-400 text-sm font-medium">Smart Builder • Micro:bit + Firebase</p>
+                </div>
+            </div>
+
+            <div class="flex gap-4">
+                <div class="flex items-center gap-2 bg-zinc-900 border border-zinc-800 px-4 py-2 rounded-2xl">
+                    <span id="bleDot" class="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.8)]"></span>
+                    <span id="bleText" class="font-bold text-xs uppercase tracking-widest text-zinc-400">BLE OFF</span>
+                </div>
+                <div class="flex items-center gap-2 bg-zinc-900 border border-zinc-800 px-4 py-2 rounded-2xl">
+                    <span id="fbDot" class="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.8)]"></span>
+                    <span id="fbText" class="font-bold text-xs uppercase tracking-widest text-zinc-400">DB OFF</span>
+                </div>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 xl:grid-cols-12 gap-8">
+
+            <div class="xl:col-span-12 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="glass-card p-6 md:p-8 rounded-3xl flex flex-col justify-between">
+                    <div>
+                        <h2 class="flex items-center gap-3 text-cyan-400 font-bold mb-6 tracking-wide">
+                            <i class="fab fa-bluetooth-b text-xl"></i> MICRO:BIT UPLINK
+                        </h2>
+                        <p class="text-sm text-zinc-500 mb-6">Hubungkan Micro:bit via Bluetooth Web API. Pastikan Micro:bit sudah diprogram dengan ekstensi Bluetooth UART.</p>
+                    </div>
+                    <div class="flex gap-4">
+                        <button id="btnConnectBle" class="flex-1 py-4 bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 hover:border-cyan-500 rounded-2xl font-bold text-sm transition-all flex items-center justify-center gap-2">
+                            <i class="fab fa-bluetooth"></i> Connect
+                        </button>
+                        <button id="btnDisconnectBle" disabled class="px-6 py-4 bg-zinc-900 border border-red-900/50 text-red-500 hover:bg-red-500/10 rounded-2xl font-bold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="glass-card p-6 md:p-8 rounded-3xl">
+                    <h2 class="flex items-center gap-3 text-emerald-400 font-bold mb-6 tracking-wide">
+                        <i class="fas fa-database text-xl"></i> FIREBASE CONFIG
+                    </h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <input id="apiKeyInput" type="password" placeholder="API Key (AIzaSy...)" class="w-full bg-zinc-900/50 border border-zinc-700 focus:border-emerald-500 rounded-2xl px-5 py-3.5 outline-none text-sm transition-colors">
+                        <input id="dbUrlInput" type="text" placeholder="Database URL (https://...)" class="w-full bg-zinc-900/50 border border-zinc-700 focus:border-emerald-500 rounded-2xl px-5 py-3.5 outline-none text-sm transition-colors">
+                    </div>
+                    <div class="flex gap-4">
+                        <input id="dbPathInput" type="text" placeholder="Node Path (ex: iot/kelas8)" class="flex-1 bg-zinc-900/50 border border-zinc-700 focus:border-emerald-500 rounded-2xl px-5 py-3.5 outline-none text-sm transition-colors">
+                        <button id="btnConnectFb" class="px-8 py-3.5 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 rounded-2xl font-bold text-sm transition-all shadow-[0_0_15px_rgba(16,185,129,0.2)]">
+                            Sync
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="xl:col-span-12 glass-card p-6 md:p-8 rounded-3xl border-orange-500/30 relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
+                <div class="flex justify-between items-center mb-6 relative z-10">
+                    <h2 class="font-bold text-orange-400 tracking-wide flex items-center gap-3">
+                        <i class="fas fa-tools"></i> MANUAL PARAMETER BUILDER
+                    </h2>
+                    <button id="btnCancelEdit" class="hidden text-xs bg-red-500/20 text-red-400 px-4 py-2 rounded-xl font-bold hover:bg-red-500/30 transition-all">Batal Edit</button>
+                </div>
+                <div class="flex flex-wrap md:flex-nowrap gap-4 relative z-10">
+                    <input id="bKey" type="text" placeholder="Nama Key (ex: lampu_teras)" class="flex-1 bg-zinc-900 border border-zinc-700 focus:border-orange-500 rounded-2xl px-5 py-3 outline-none text-sm min-w-[200px]">
+                    <select id="bType" class="bg-zinc-900 border border-zinc-700 focus:border-orange-500 rounded-2xl px-5 py-3 outline-none text-sm min-w-[180px] cursor-pointer">
+                        <option value="sensor">📡 Chart Sensor</option>
+                        <option value="switch">⚡ Toggle Switch</option>
+                        <option value="dimmer">🎚️ Dimmer Slider</option>
+                    </select>
+                    <input id="bUnit" type="text" placeholder="Satuan (ex: °C)" class="w-28 bg-zinc-900 border border-zinc-700 focus:border-orange-500 rounded-2xl px-5 py-3 outline-none text-sm text-center">
+                    <input id="bMax" type="number" placeholder="Max" class="w-24 bg-zinc-900 border border-zinc-700 focus:border-orange-500 rounded-2xl px-5 py-3 outline-none text-sm text-center">
+                    <button id="btnSaveParam" class="px-8 py-3 bg-zinc-800 hover:bg-orange-500 hover:text-zinc-950 border border-zinc-600 hover:border-orange-500 rounded-2xl font-bold text-sm transition-all whitespace-nowrap">
+                        <i class="fas fa-save mr-2"></i> Simpan
+                    </button>
+                </div>
+            </div>
+
+            <div class="xl:col-span-12 mt-4">
+                <div class="mb-10">
+                    <h2 class="uppercase text-xs font-bold tracking-[3px] text-zinc-500 mb-6 flex items-center gap-3">
+                        <i class="fas fa-chart-area text-emerald-500"></i> Live Telemetry
+                    </h2>
+                    <div id="sensorGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        <div class="col-span-full text-center py-10 border border-dashed border-zinc-800 rounded-3xl text-zinc-600 font-medium">
+                            Menunggu koneksi Database atau data dari Micro:bit...
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div>
+                        <h2 class="uppercase text-xs font-bold tracking-[3px] text-zinc-500 mb-6 flex items-center gap-3">
+                            <i class="fas fa-toggle-on text-cyan-500"></i> Digital Switches
+                        </h2>
+                        <div id="switchGrid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-4"></div>
+                    </div>
+                    <div>
+                        <h2 class="uppercase text-xs font-bold tracking-[3px] text-zinc-500 mb-6 flex items-center gap-3">
+                            <i class="fas fa-sliders-h text-blue-500"></i> Analog Dimmers
+                        </h2>
+                        <div id="dimmerGrid" class="space-y-4"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="xl:col-span-12 glass-card rounded-3xl overflow-hidden mt-6">
+                <div class="px-6 py-4 bg-zinc-900/80 border-b border-zinc-800 flex justify-between items-center text-xs font-bold uppercase tracking-widest text-zinc-400">
+                    <span><i class="fas fa-terminal mr-2"></i> System Log</span>
+                    <button id="btnClearLog" class="hover:text-white transition"><i class="fas fa-trash-alt"></i></button>
+                </div>
+                <div id="logConsole" class="h-60 p-6 bg-[#0c0c0e] font-mono text-xs overflow-y-auto text-zinc-300 custom-scrollbar space-y-1.5 tracking-tight"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed bottom-8 right-8 bg-zinc-800 border border-zinc-700 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 transform transition-all duration-300 translate-y-20 opacity-0 z-50">
+        <i id="toastIcon" class="fas fa-info-circle text-sky-400 text-xl"></i>
+        <p id="toastMsg" class="text-sm font-medium"></p>
+    </div>
+
+    <script type="module">
+        import { initializeApp, getApps, deleteApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+        import { getDatabase, ref, onValue, update, remove, set } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js';
+
+        // --- BLUETOOTH CONFIG ---
+        const UART_SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
+        const UART_TX_CHARACTERISTIC_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
+        const UART_RX_CHARACTERISTIC_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
+
+        // --- STATE MANAGEMENT ---
+        const state = {
+            db: null, currentPath: "", unsubscribe: null, currentData: {}, historyData: {}, 
+            device: null, txChar: null, rxChar: null, bleConnected: false, bleBuffer: "",
+            editModeKey: null
+        };
+        const charts = {}; // Menyimpan instance Chart.js
+
+        // --- UTILITIES ---
+        const $ = (id) => document.getElementById(id);
+        const formatName = (str) => str.replace(/_/g, ' ').toUpperCase();
+        
+        function showToast(msg, type = 'info') {
+            const toast = $('toast');
+            $('toastMsg').innerText = msg;
+            const icon = $('toastIcon');
+            icon.className = type === 'success' ? 'fas fa-check-circle text-emerald-400 text-xl' : 
+                             type === 'error' ? 'fas fa-exclamation-circle text-red-400 text-xl' : 
+                             'fas fa-info-circle text-sky-400 text-xl';
+            
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => toast.classList.add('translate-y-20', 'opacity-0'), 3000);
+        }
+
+        function logMsg(msg, color = "#a1a1aa") {
+            const time = new Date().toLocaleTimeString('id-ID', { hour12: false });
+            const html = `<div><span class="text-zinc-600">[${time}]</span> <span style="color:${color}">${msg}</span></div>`;
+            $('logConsole').insertAdjacentHTML('afterbegin', html);
+        }
+
+        // --- BLUETOOTH LOGIC ---
+        async function connectBLE() {
+            try {
+                if (!navigator.bluetooth) throw new Error("Browser tidak support Web Bluetooth.");
+                logMsg("Scanning BLE devices...", "#38bdf8");
+                
+                state.device = await navigator.bluetooth.requestDevice({
+                    filters: [{ namePrefix: "BBC micro:bit" }],
+                    optionalServices: [UART_SERVICE_UUID]
+                });
+                
+                state.device.addEventListener("gattserverdisconnected", () => {
+                    state.bleConnected = false; updateStatusUI(); 
+                    logMsg("Micro:bit Terputus!", "#ef4444");
+                    showToast("Micro:bit Terputus", "error");
+                });
+
+                const server = await state.device.gatt.connect();
+                const service = await server.getPrimaryService(UART_SERVICE_UUID);
+                
+                state.txChar = await service.getCharacteristic(UART_TX_CHARACTERISTIC_UUID);
+                state.rxChar = await service.getCharacteristic(UART_RX_CHARACTERISTIC_UUID);
+                
+                await state.txChar.startNotifications();
+                state.txChar.addEventListener("characteristicvaluechanged", handleBLEData);
+                
+                state.bleConnected = true; updateStatusUI();
+                logMsg(`Connected to ${state.device.name}`, "#34d399");
+                showToast("Bluetooth Terhubung!", "success");
+            } catch (e) {
+                logMsg(`BLE Error: ${e.message}`, "#ef4444");
+                showToast("Gagal connect BLE", "error");
+            }
+        }
+
+        function handleBLEData(event) {
+            let arr = [];
+            for (let i = 0; i < event.target.value.byteLength; i++) arr.push(event.target.value.getUint8(i));
+            state.bleBuffer += String.fromCharCode.apply(null, arr);
+            
+            const lines = state.bleBuffer.split('\n');
+            state.bleBuffer = lines.pop(); 
+            
+            lines.forEach(line => {
+                const txt = line.trim();
+                if (txt) processIncomingSensor(txt);
+            });
+        }
+
+        // --- SMART PARSER (KECERDASAN OTOMATIS) ---
+        function processIncomingSensor(txt) {
+            logMsg(`RX < ${txt}`, "#2dd4bf");
+            if (!state.db) return;
+
+            if (txt.includes(':')) {
+                const parts = txt.split(':');
+                let key = parts[0].trim().replace(/\s+/g, '_').toLowerCase();
+                const val = parseFloat(parts[1].trim());
+
+                // LOGIKA CERDAS PENENTUAN TIPE WIDGET
+                if (key === "mode") key = "otomatis"; 
+                
+                let autoType = "sensor"; 
+                if (key === "lampu" || key === "otomatis") autoType = "switch"; 
+                if (key === "kipas") autoType = "dimmer"; 
+
+                if (!isNaN(val)) {
+                    if (state.currentData[key]) {
+                        update(ref(state.db, `${state.currentPath}/${key}`), { value: val });
+                    } else {
+                        logMsg(`Auto-create ${autoType}: ${key}`, "#fbbf24");
+                        set(ref(state.db, `${state.currentPath}/${key}`), { 
+                            tipe: autoType, value: val, satuan: "", batas_atas: autoType==="dimmer"?1024:100 
+                        });
+                    }
+                }
+            }
+        }
+
+        async function sendToMicrobit(key, val) {
+            if (!state.rxChar) { logMsg("Kirim gagal: BLE offline", "#ef4444"); return; }
+            const payload = `${key},${val}\n`;
+            try {
+                await state.rxChar.writeValue(new TextEncoder().encode(payload));
+                logMsg(`TX > ${payload.trim()}`, "#fb923c");
+            } catch(e) { logMsg(`TX Error: ${e.message}`, "#ef4444"); }
+        }
+
+        // --- FIREBASE LOGIC ---
+        async function connectFirebase() {
+            const apiKey = $('apiKeyInput').value.trim();
+            const dbUrl = $('dbUrlInput').value.trim();
+            const path = $('dbPathInput').value.trim();
+
+            if(!apiKey || !dbUrl || !path) { showToast("Lengkapi form Firebase", "error"); return; }
+            
+            try {
+                const config = { apiKey, databaseURL: dbUrl, projectId: dbUrl.split('//')[1]?.split('.')[0] };
+                const apps = getApps();
+                if (apps.length > 0) await deleteApp(apps[0]);
+                if (state.unsubscribe) state.unsubscribe();
+
+                const app = initializeApp(config);
+                state.db = getDatabase(app);
+                state.currentPath = path;
+
+                logMsg(`Database Synced: /${path}`, "#34d399");
+                showToast("Firebase Terhubung!", "success");
+                
+                state.unsubscribe = onValue(ref(state.db, path), (snapshot) => {
+                    state.currentData = snapshot.val() || {};
+                    renderDashboard(state.currentData);
+                    updateStatusUI(true);
+                });
+
+                localStorage.setItem('iot_config', JSON.stringify({apiKey, dbUrl, path}));
+            } catch(e) {
+                logMsg(`DB Error: ${e.message}`, "#ef4444");
+                showToast("Koneksi DB Gagal", "error");
+            }
+        }
+
+        // --- DASHBOARD RENDERER ---
+        function renderDashboard(data) {
+            const keys = Object.keys(data);
+            if(keys.length === 0) {
+                $('sensorGrid').innerHTML = `<div class="col-span-full text-center py-10 border border-dashed border-zinc-800 rounded-3xl text-zinc-600 font-medium">Database Kosong. Tambah manual atau kirim dari Micro:bit.</div>`;
+                $('switchGrid').innerHTML = ''; $('dimmerGrid').innerHTML = '';
+                return;
+            }
+
+            renderSensors(keys.filter(k => data[k].tipe === 'sensor'), data);
+            renderSwitches(keys.filter(k => data[k].tipe === 'switch'), data);
+            renderDimmers(keys.filter(k => data[k].tipe === 'dimmer'), data);
+        }
+
+        function generateActions(key) {
+            return `
+                <div class="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2 z-10">
+                    <button onclick="editParam('${key}')" class="w-8 h-8 rounded-full bg-zinc-800/80 text-sky-400 hover:bg-sky-500/20 transition-colors"><i class="fas fa-edit text-xs"></i></button>
+                    <button onclick="deleteParam('${key}')" class="w-8 h-8 rounded-full bg-zinc-800/80 text-red-400 hover:bg-red-500/20 transition-colors"><i class="fas fa-trash text-xs"></i></button>
+                </div>
+            `;
+        }
+
+        function renderSensors(keys, data) {
+            const grid = $('sensorGrid');
+            Array.from(grid.children).forEach(el => { if(el.id && !keys.includes(el.id.replace('s-',''))) el.remove(); });
+            if(keys.length > 0 && grid.innerHTML.includes("Database Kosong")) grid.innerHTML = '';
+
+            keys.forEach(key => {
+                const item = data[key];
+                if(!state.historyData[key]) state.historyData[key] = [];
+                state.historyData[key].push(item.value);
+                if(state.historyData[key].length > 15) state.historyData[key].shift(); // Keep last 15 points
+
+                let card = $(`s-${key}`);
+                if (!card) {
+                    const html = `
+                        <div class="glass-card p-6 rounded-3xl relative group overflow-hidden" id="s-${key}">
+                            ${generateActions(key)}
+                            <div class="text-xs text-emerald-500 font-bold uppercase tracking-widest mb-1">${formatName(key)}</div>
+                            <div class="flex items-baseline gap-2 mb-4 relative z-10">
+                                <div class="text-4xl font-black text-white tracking-tighter" id="s-val-${key}">${item.value}</div>
+                                <div class="text-zinc-500 font-medium">${item.satuan || ''}</div>
+                            </div>
+                            <div class="h-20 w-full relative z-0"><canvas id="canvas-${key}"></canvas></div>
+                        </div>
+                    `;
+                    grid.insertAdjacentHTML('beforeend', html);
+                    initChart(key, item.batas_atas);
+                } else {
+                    $(`s-val-${key}`).innerText = item.value;
+                }
+                updateChart(key, state.historyData[key]);
+            });
+        }
+
+        function renderSwitches(keys, data) {
+            const grid = $('switchGrid');
+            grid.innerHTML = '';
+            keys.forEach(key => {
+                const item = data[key];
+                const isOn = (item.value == 1 || item.value === true);
+                const color = isOn ? 'text-cyan-400' : 'text-zinc-600';
+                const bg = isOn ? 'bg-cyan-400/10 border-cyan-500/50 shadow-[0_0_15px_rgba(34,211,238,0.15)]' : 'bg-zinc-900/50 border-zinc-800';
+                
+                const html = `
+                    <div class="glass-card p-5 rounded-3xl cursor-pointer transition-all border relative group ${bg}" id="sw-${key}" onclick="toggleSwitch('${key}', ${isOn ? 0 : 1})">
+                        ${generateActions(key)}
+                        <div class="flex justify-between items-start mb-4">
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center ${isOn ? 'bg-cyan-400/20' : 'bg-zinc-800'} transition-colors">
+                                <i class="fas fa-power-off text-lg ${color}"></i>
+                            </div>
+                        </div>
+                        <div class="text-xs text-zinc-400 font-bold uppercase tracking-wider mb-1">${formatName(key)}</div>
+                        <div class="text-xl font-black ${isOn ? 'text-cyan-400' : 'text-zinc-500'}">${isOn ? 'ON' : 'OFF'}</div>
+                    </div>
+                `;
+                grid.insertAdjacentHTML('beforeend', html);
+            });
+        }
+
+        function renderDimmers(keys, data) {
+            const grid = $('dimmerGrid');
+            grid.innerHTML = '';
+            keys.forEach(key => {
+                const item = data[key];
+                const max = item.batas_atas || 1024;
+                
+                const html = `
+                    <div class="glass-card p-6 rounded-3xl relative group border border-zinc-800 bg-zinc-900/30">
+                        ${generateActions(key)}
+                        <div class="flex justify-between items-end mb-4">
+                           <div class="text-xs text-blue-400 font-bold uppercase tracking-widest">${formatName(key)}</div>
+                           <div class="text-xl font-black text-white">${item.value} <span class="text-zinc-600 text-sm font-medium">/ ${max}</span></div>
+                        </div>
+                        <input type="range" min="0" max="${max}" value="${item.value}" onchange="changeDimmer('${key}', this.value)">
+                    </div>
+                `;
+                grid.insertAdjacentHTML('beforeend', html);
+            });
+        }
+
+        // --- CHART.JS LOGIC ---
+        function initChart(key, max) {
+            const ctx = $(`canvas-${key}`).getContext('2d');
+            charts[key] = new Chart(ctx, {
+                type: 'line',
+                data: { labels: Array(15).fill(''), datasets: [{ data: [], borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', borderWidth: 2, tension: 0.4, fill: true, pointRadius: 0 }] },
+                options: { responsive: true, maintainAspectRatio: false, scales: { x: { display: false }, y: { display: false, min: 0, max: max || 100 } }, plugins: { legend: { display: false }, tooltip: { enabled: false } }, animation: false }
+            });
+        }
+
+        function updateChart(key, dataArray) {
+            if(charts[key]) {
+                charts[key].data.datasets[0].data = dataArray;
+                charts[key].update();
+            }
+        }
+
+        // --- GLOBAL WINDOW METHODS UNTUK INLINE HTML ---
+        window.toggleSwitch = async (key, newVal) => {
+            if(!state.db) return;
+            await update(ref(state.db, `${state.currentPath}/${key}`), { value: newVal });
+            sendToMicrobit(key, newVal);
+        };
+
+        window.changeDimmer = async (key, newVal) => {
+            if(!state.db) return;
+            await update(ref(state.db, `${state.currentPath}/${key}`), { value: parseInt(newVal) });
+            sendToMicrobit(key, parseInt(newVal));
+        };
+
+        window.deleteParam = async (key) => {
+            // Hindari memicu klik pada card switch
+            setTimeout(async () => {
+                if(confirm(`Hapus parameter [${key}] dari database?`)) {
+                    await remove(ref(state.db, `${state.currentPath}/${key}`));
+                    if(state.historyData[key]) delete state.historyData[key];
+                    if(charts[key]) { charts[key].destroy(); delete charts[key]; }
+                    logMsg(`Deleted: ${key}`, "#ef4444");
+                    showToast(`Parameter dihapus`, "info");
+                }
+            }, 10);
+        };
+
+        window.editParam = (key) => {
+            setTimeout(() => {
+                const item = state.currentData[key];
+                if(!item) return;
+                $('bKey').value = key; $('bKey').readOnly = true; 
+                $('bKey').classList.add('border-orange-500', 'text-orange-400');
+                $('bType').value = item.tipe || 'sensor';
+                $('bUnit').value = item.satuan || '';
+                $('bMax').value = item.batas_atas || '';
+                
+                state.editModeKey = key;
+                $('btnCancelEdit').classList.remove('hidden');
+                $('btnSaveParam').innerHTML = '<i class="fas fa-check mr-2"></i> Update';
+                $('bKey').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 10);
+        };
+
+        function resetBuilder() {
+            $('bKey').value = ''; $('bKey').readOnly = false; 
+            $('bKey').classList.remove('border-orange-500', 'text-orange-400');
+            $('bUnit').value = ''; $('bMax').value = '';
+            state.editModeKey = null;
+            $('btnCancelEdit').classList.add('hidden');
+            $('btnSaveParam').innerHTML = '<i class="fas fa-save mr-2"></i> Simpan';
+        }
+        $('btnCancelEdit').onclick = resetBuilder;
+
+        $('btnSaveParam').onclick = async () => {
+            if(!state.db) { showToast("Konek Firebase dulu!", "error"); return; }
+            let key = $('bKey').value.trim().replace(/\s+/g, '_').toLowerCase();
+            if(!key) return;
+
+            const payload = {
+                tipe: $('bType').value,
+                satuan: $('bUnit').value.trim(),
+                batas_atas: parseInt($('bMax').value) || ($('bType').value === 'dimmer'? 1024 : 100),
+                value: state.editModeKey ? state.currentData[state.editModeKey].value : 0
+            };
+
+            try {
+                await set(ref(state.db, `${state.currentPath}/${key}`), payload);
+                logMsg(`Saved Param: ${key}`, "#34d399");
+                showToast("Parameter Disimpan", "success");
+                resetBuilder();
+            } catch(e) { 
+                logMsg(`Save Error: ${e.message}`, "#ef4444"); 
+            }
+        };
+
+        function updateStatusUI(fbSync = false) {
+            $('btnConnectBle').disabled = state.bleConnected;
+            $('btnDisconnectBle').disabled = !state.bleConnected;
+            
+            const bDot = $('bleDot'); const bText = $('bleText');
+            if(state.bleConnected) {
+                bDot.className = "w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.8)]";
+                bText.innerText = "BLE ON"; bText.className = "font-bold text-xs uppercase tracking-widest text-cyan-400";
+            } else {
+                bDot.className = "w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.8)]";
+                bText.innerText = "BLE OFF"; bText.className = "font-bold text-xs uppercase tracking-widest text-zinc-500";
+            }
+
+            if(fbSync) {
+                $('fbDot').className = "w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.8)]";
+                $('fbText').innerText = "DB SYNC"; $('fbText').className = "font-bold text-xs uppercase tracking-widest text-emerald-400";
+            }
+        }
+
+        // --- EVENT LISTENERS INIT ---
+        $('btnConnectBle').onclick = connectBLE;
+        $('btnDisconnectBle').onclick = () => { if(state.device) state.device.gatt.disconnect(); };
+        $('btnConnectFb').onclick = connectFirebase;
+        $('btnClearLog').onclick = () => $('logConsole').innerHTML = '';
+
+        window.onload = () => {
+            const saved = JSON.parse(localStorage.getItem('iot_config') || '{}');
+            if(saved.apiKey) {
+                $('apiKeyInput').value = saved.apiKey;
+                $('dbUrlInput').value = saved.dbUrl;
+                $('dbPathInput').value = saved.path;
+            }
+            logMsg("Sistem inisialisasi selesai. Menunggu perintah...", "#71717a");
+        };
+    </script>
+</body>
+</html>
